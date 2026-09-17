@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f1226">
+<meta name="description" content="Svara — a clean, offline-friendly music player for your local audio files.">
+<title>Svara — Music Player</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="dot">🎵</div>
+    <div>Svara<small>MUSIC PLAYER</small></div>
+  </div>
+</header>
+
+<div id="emptyState">
+  <div class="big">🎧</div>
+  Tap the button below to add your songs<br>
+  <span style="font-size:12.5px">Pick any audio files on your device (MP3, M4A, WAV…)</span>
+</div>
+
+<div id="addBtnWrap">
+  <button class="btn" id="addBtn">＋ Add Songs</button>
+</div>
+
+<div id="toolbar">
+  <input id="searchBox" type="search" placeholder="🔍 Search songs...">
+  <button class="icon-btn" id="shuffleBtn" title="Shuffle">🔀</button>
+  <button class="icon-btn" id="repeatBtn" title="Repeat">🔁</button>
+  <button class="icon-btn" id="clearBtn" title="Clear all">🗑️</button>
+</div>
+
+<div id="playlistWrap">
+  <ul id="playlist"></ul>
+</div>
+
+<div id="player">
+  <div id="nowName">—</div>
+  <div id="nowSub">Svara Music Player</div>
+  <div id="seekWrap">
+    <span id="curTime">0:00</span>
+    <input type="range" id="seek" min="0" max="1000" value="0" step="1">
+    <span id="totTime">0:00</span>
+  </div>
+  <div id="controls">
+    <button class="nav-btn" id="prevBtn">⏮</button>
+    <button id="playBtn">▶</button>
+    <button class="nav-btn" id="nextBtn">⏭</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<audio id="audio" preload="metadata"></audio>
+<input type="file" id="fileInput" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac,.opus" multiple hidden>
+
+<script src="js/app.js"></script>
+</body>
+</html>
