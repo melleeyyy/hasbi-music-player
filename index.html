@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0b0d1a">
-<meta name="description" content="Svara — a clean, offline-friendly music player for your local audio files.">
-<title>Svara — Music Player</title>
+<meta name="theme-color" content="#04060b">
+<meta name="description" content="Hasbi — a clean, offline-friendly music player for your local audio files.">
+<title>Hasbi — Music Player</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -13,11 +13,17 @@
 </head>
 <body>
 
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="splash-logo">
+    <div class="splash-name">Hasbi</div>
+    <div class="splash-sub">MUSIC PLAYER</div>
+  </div>
+</div>
+
 <header class="app-header">
   <button class="icon-btn rippleable" id="backBtn" aria-label="Back" hidden></button>
-  <div class="brand">
-    <div class="brand-mark" id="brandMark"></div>
-    <div class="brand-text">Svara<small>MUSIC PLAYER</small></div>
+  <div class="brand" id="brandSlot">
+    <div class="brand-text">Hasbi<small>MUSIC PLAYER</small></div>
   </div>
   <button class="icon-btn rippleable" id="sortBtn" aria-label="Sort order" hidden></button>
 </header>
@@ -72,10 +78,12 @@
   <button class="mini-art" id="miniArt" aria-label="Open now playing"></button>
   <div class="mini-meta" id="miniMeta">
     <div class="mini-name" id="miniName">—</div>
-    <div class="mini-sub" id="miniSub">Svara</div>
+    <div class="mini-sub" id="miniSub">Hasbi</div>
   </div>
-  <button class="icon-btn large rippleable" id="miniPlay" aria-label="Play or pause"></button>
-  <button class="icon-btn large rippleable" id="miniNext" aria-label="Next song"></button>
+  <button class="icon-btn med rippleable" id="miniLike" aria-label="Like current song"></button>
+  <button class="icon-btn med rippleable" id="miniPrev" aria-label="Previous song"></button>
+  <button class="icon-btn med rippleable" id="miniPlay" aria-label="Play or pause"></button>
+  <button class="icon-btn med rippleable" id="miniNext" aria-label="Next song"></button>
 </div>
 
 <div class="np" id="nowPlaying">
@@ -83,10 +91,17 @@
   <div class="np-header" id="npHeader">
     <button class="icon-btn rippleable" id="npClose" aria-label="Close now playing"></button>
     <div class="np-context"><small>PLAYING FROM</small><span id="npLabel">All songs</span></div>
-    <button class="icon-btn rippleable" id="npQueue" aria-label="Open queue"></button>
+    <div class="np-actions">
+      <button class="icon-btn small rippleable" id="npLike" aria-label="Like current song"></button>
+      <button class="icon-btn small rippleable" id="npPl" aria-label="Add to playlist"></button>
+      <button class="icon-btn small rippleable" id="npQueue" aria-label="Open queue"></button>
+    </div>
   </div>
-  <div class="np-disc-wrap">
-    <div class="np-disc" id="npDisc"><div class="np-disc-inner" id="npDiscInner"></div></div>
+  <div class="np-disc-wrap" id="npDiscWrap">
+    <div class="np-ring" id="npRing">
+      <div class="np-disc" id="npDisc"><div class="np-disc-inner" id="npDiscInner"></div></div>
+    </div>
+    <div class="skip-badge" id="skipBadge" aria-hidden="true"></div>
   </div>
   <div class="np-title" id="npTitle">—</div>
   <div class="np-sub" id="npSub">Local file</div>
@@ -102,6 +117,7 @@
     <button class="icon-btn big rippleable" id="nextBtn" aria-label="Next song"></button>
     <button class="icon-btn big rippleable" id="repeatBtn" aria-label="Repeat mode"></button>
   </div>
+  <div class="np-nextup" id="npNextUp" hidden></div>
 </div>
 
 <div class="sheet-backdrop" id="sheetBackdrop"></div>

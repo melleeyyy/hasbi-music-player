@@ -1,9 +1,9 @@
 /* ============================================================
-   Svara — Music Player · Service Worker
+   Hasbi — Music Player · Service Worker
    Caches the app shell so the player works fully offline.
    License: MIT
    ============================================================ */
-const CACHE_NAME = 'svara-v3';
+const CACHE_NAME = 'hasbi-v4';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -45,7 +45,7 @@ self.addEventListener('fetch', (event) => {
           }
         } catch (e) { /* ignore */ }
         return response;
-      }).catch(() => cached || caches.match('./index.html'));
+      }).catch(() => cached || caches.match('./index.html'))
     })
   );
 });

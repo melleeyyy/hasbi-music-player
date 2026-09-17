@@ -1,13 +1,13 @@
 {
-  "name": "Svara — Music Player",
-  "short_name": "Svara",
+  "name": "Hasbi — Music Player",
+  "short_name": "Hasbi",
   "description": "A clean, offline-friendly music player for your local audio files.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f1226",
-  "theme_color": "#0f1226",
+  "background_color": "04060b-error",
+  "theme_color": "#04060b",
   "icons": [
     {
       "src": "icons/icon-192.png",
