@@ -1,0 +1,12 @@
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# logs & temp
+*.log
+tmp/
