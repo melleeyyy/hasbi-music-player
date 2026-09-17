@@ -89,6 +89,7 @@
   var seeking = false;
   var toastTimer = null;
   var npIsOpen = false;
+  var lastPosSave = 0;
 
   try {
     sortMode = localStorage.getItem('svara.sort') || 'added';
@@ -164,6 +165,50 @@
     queueLabel = pl ? pl.name : 'All songs';
   }
 
+  /* ==================== persistence (IndexedDB + localStorage) ====================
+     Audio files are stored as blobs in IndexedDB, so the library survives
+     closing the app. Playlists and playback position go to localStorage. */
+  var DB = null;
+  function idbOpen() {
+    return new Promise(function (resolve) {
+      if (!window.indexedDB) { resolve(null); return; }
+      try {
+        var req = window.indexedDB.open('svara-db', 1);
+        req.onupgradeneeded = function (e) { e.target.result.createObjectStore('tracks', { keyPath: 'uid' }); };
+        req.onsuccess = function (e) { DB = e.target.result; resolve(DB); };
+        req.onerror = function () { resolve(null); };
+      } catch (e) { resolve(null); }
+    });
+  }
+  function idbPut(rec) {
+    if (!DB) return;
+    try { DB.transaction('tracks', 'readwrite').objectStore('tracks').put(rec); } catch (e) {}
+  }
+  function idbDelete(uid) {
+    if (!DB) return;
+    try { DB.transaction('tracks', 'readwrite').objectStore('tracks').delete(uid); } catch (e) {}
+  }
+  function idbClear() {
+    if (!DB) return;
+    try { DB.transaction('tracks', 'readwrite').objectStore('tracks').clear(); } catch (e) {}
+  }
+  function idbGetAll() {
+    return new Promise(function (resolve) {
+      if (!DB) { resolve([]); return; }
+      try {
+        var req = DB.transaction('tracks').objectStore('tracks').getAll();
+        req.onsuccess = function () { resolve(req.result || []); };
+        req.onerror = function () { resolve([]); };
+      } catch (e) { resolve([]); }
+    });
+  }
+  function persistPlaylists() {
+    save('svara.playlists', JSON.stringify(playlists));
+  }
+  function savePos() {
+    if (currentUid !== null && audio.currentTime > 0) save('svara.pos', String(Math.floor(audio.currentTime)));
+  }
+
   /* ==================== ripple ==================== */
   document.addEventListener('pointerdown', function (e) {
     var el = e.target.closest ? e.target.closest('.rippleable') : null;
@@ -185,8 +230,12 @@
     for (var i = 0; i < fileList.length; i++) {
       var f = fileList[i];
       if (f.type.indexOf('audio') === 0 || /\.(mp3|m4a|wav|ogg|oga|flac|aac|opus|wma)$/i.test(f.name)) {
-        newUids.push(uidSeq);
-        tracks.push({ uid: uidSeq++, name: prettyName(f.name), url: URL.createObjectURL(f), dur: null, addedAt: Date.now() + i, file: f });
+        var uid = uidSeq++;
+        var addedAt = Date.now() + i;
+        var name = prettyName(f.name);
+        newUids.push(uid);
+        tracks.push({ uid: uid, name: name, url: URL.createObjectURL(f), dur: null, addedAt: addedAt, file: f });
+        idbPut({ uid: uid, name: name, dur: null, addedAt: addedAt, blob: f });
       }
     }
     if (!newUids.length) { toast('No audio files found'); return; }
@@ -220,6 +269,7 @@
     if (queue.indexOf(u) === -1) buildQueue();
     currentUid = u;
     audio.src = t.url;
+    save('svara.last', String(u));
     $('npTitle').textContent = t.name;
     $('miniName').textContent = t.name;
     $('npSub').textContent = t.dur ? 'Local file · ' + fmt(t.dur) : 'Local file';
@@ -288,10 +338,12 @@
     if (!t) return;
     URL.revokeObjectURL(t.url);
     tracks.splice(tracks.indexOf(t), 1);
+    idbDelete(uid);
     playlists.forEach(function (p) {
       var i = p.uids.indexOf(uid);
       if (i > -1) p.uids.splice(i, 1);
     });
+    persistPlaylists();
     if (currentUid === uid) {
       buildQueue();
       if (queue.length) playUid(queue[0], npIsOpen);
@@ -300,6 +352,20 @@
       buildQueue();
     }
     render();
+  }
+
+  function clearLibrary() {
+    stopPlayback();
+    tracks.forEach(function (t) { URL.revokeObjectURL(t.url); });
+    tracks = [];
+    playlists.forEach(function (p) { p.uids = []; });
+    persistPlaylists();
+    save('svara.last', '0');
+    save('svara.pos', '0');
+    idbClear();
+    buildQueue();
+    render();
+    toast('Library cleared');
   }
 
   /* ==================== audio events ==================== */
@@ -314,6 +380,7 @@
     var t = currentUid !== null ? byUid(currentUid) : null;
     if (t && !t.dur) {
       t.dur = audio.duration;
+      idbPut({ uid: t.uid, name: t.name, dur: t.dur, addedAt: t.addedAt, blob: t.file });
       $('npSub').textContent = 'Local file · ' + fmt(t.dur);
       render();
     }
@@ -327,7 +394,11 @@
       seek.style.setProperty('--p', (p / 10) + '%');
       miniProgress.style.width = (p / 10) + '%';
     }
+    var now = Date.now();
+    if (now - lastPosSave > 5000) { lastPosSave = now; savePos(); }
   });
+  audio.addEventListener('pause', savePos);
+  window.addEventListener('pagehide', savePos);
 
   function updatePlayUI() {
     var playing = !audio.paused && !audio.ended;
@@ -448,6 +519,7 @@
       if (confirm('Delete playlist "' + pl.name + '"? Songs stay in your library.')) {
         playlists.splice(playlists.indexOf(pl), 1);
         playlistCtx = null;
+        persistPlaylists();
         render();
         toast('Playlist deleted');
       }
@@ -528,6 +600,19 @@
       });
       sortMenu.appendChild(b);
     });
+    if (tracks.length) {
+      var sep = document.createElement('div');
+      sep.className = 'sort-sep';
+      sortMenu.appendChild(sep);
+      var clear = document.createElement('button');
+      clear.className = 'sort-item danger';
+      clear.innerHTML = icon('trash', 18) + 'Clear library';
+      clear.addEventListener('click', function () {
+        sortMenu.classList.remove('open');
+        if (confirm('Remove ALL songs from your library? This cannot be undone.')) clearLibrary();
+      });
+      sortMenu.appendChild(clear);
+    }
   }
   document.addEventListener('click', function (e) {
     if (!sortMenu.classList.contains('open')) return;
@@ -569,6 +654,7 @@
             if (pl) {
               var i = pl.uids.indexOf(uid);
               if (i > -1) pl.uids.splice(i, 1);
+              persistPlaylists();
               buildQueue();
               render();
             }
@@ -603,6 +689,7 @@
         var i = pl.uids.indexOf(uid);
         if (i > -1) { pl.uids.splice(i, 1); toast('Removed from "' + pl.name + '"'); }
         else { pl.uids.push(uid); toast('Added to "' + pl.name + '"'); }
+        persistPlaylists();
         closeSheet();
         render();
       });
@@ -622,6 +709,7 @@
           var pl = { id: plSeq++, name: name, uids: [] };
           if (uidToAdd !== null && uidToAdd !== undefined) pl.uids.push(uidToAdd);
           playlists.push(pl);
+          persistPlaylists();
           closeSheet();
           render();
           toast('Playlist "' + name + '" created' + (pl.uids.length ? ' with 1 song' : ''));
@@ -752,8 +840,59 @@
   $('shuffleBtn').classList.toggle('on', shuffle);
   updateRepeatUI();
   updatePlayUI();
+  closeNP();
   buildQueue();
   render();
+
+  /* restore the saved library (IndexedDB) + playlists + last song */
+  idbOpen().then(function () {
+    if (navigator.storage && navigator.storage.persist) {
+      try { navigator.storage.persist().catch(function () {}); } catch (e) {}
+    }
+    return idbGetAll();
+  }).then(function (recs) {
+    recs.sort(function (a, b) { return (a.addedAt || 0) - (b.addedAt || 0); });
+    recs.forEach(function (rec) {
+      if (!rec || !rec.blob) return;
+      tracks.push({ uid: rec.uid, name: rec.name, url: URL.createObjectURL(rec.blob), dur: rec.dur, addedAt: rec.addedAt || Date.now(), file: rec.blob });
+      if (rec.uid >= uidSeq) uidSeq = rec.uid + 1;
+    });
+    try {
+      var savedPl = JSON.parse(localStorage.getItem('svara.playlists') || '[]');
+      if (Array.isArray(savedPl)) {
+        savedPl.forEach(function (p) {
+          if (p && p.name) {
+            playlists.push({ id: p.id, name: p.name, uids: Array.isArray(p.uids) ? p.uids : [] });
+            if (p.id >= plSeq) plSeq = p.id + 1;
+          }
+        });
+      }
+    } catch (e) { /* ignore */ }
+    buildQueue();
+    render();
+
+    /* bring back the last played song — paused, at its saved position */
+    var lastUid = parseInt(localStorage.getItem('svara.last') || '0', 10);
+    var t = byUid(lastUid);
+    if (t) {
+      currentUid = lastUid;
+      audio.src = t.url;
+      $('npTitle').textContent = t.name;
+      $('miniName').textContent = t.name;
+      $('npSub').textContent = t.dur ? 'Local file · ' + fmt(t.dur) : 'Local file';
+      $('miniSub').textContent = queueLabel;
+      $('npLabel').textContent = queueLabel;
+      miniPlayer.hidden = false;
+      updatePlayUI();
+      var pos = parseFloat(localStorage.getItem('svara.pos') || '0');
+      if (isFinite(pos) && pos > 0) {
+        audio.addEventListener('loadedmetadata', function once() {
+          audio.removeEventListener('loadedmetadata', once);
+          try { audio.currentTime = Math.min(pos, Math.max(0, (audio.duration || pos) - 1)); } catch (e) {}
+        });
+      }
+    }
+  });
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
