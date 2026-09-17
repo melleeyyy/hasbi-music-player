@@ -3,7 +3,7 @@
    Caches the app shell so the player works fully offline.
    License: MIT
    ============================================================ */
-const CACHE_NAME = 'svara-v2';
+const CACHE_NAME = 'svara-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
