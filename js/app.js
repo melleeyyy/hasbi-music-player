@@ -1,6 +1,6 @@
 /* ============================================================
-   Svara — Music Player · v2
-   Professional UI · Now Playing screen · Playlists · Sorting
+   Hasbi — Music Player · v4
+   Glassmorphism UI · Likes · Gestures · Media Session
    License: MIT
    ============================================================ */
 (function () {
@@ -25,7 +25,10 @@
     chevronDown: 'M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z',
     trash: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
     check: 'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
-    playlist: 'M10 6h10v2H10V6zm0 4h10v2H10v-2zm0 4h7v2h-7v-2zm-4 4c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z'
+    playlist: 'M10 6h10v2H10V6zm0 4h10v2H10v-2zm0 4h7v2h-7v-2zm-4 4c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z',
+    more: 'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+    heart: 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.87-8.55 11.54L12 21.35z',
+    heartO: 'M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.87 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z'
   };
   function icon(name, size) {
     return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="currentColor" aria-hidden="true"><path d="' + ICONS[name] + '"/></svg>';
@@ -47,6 +50,7 @@
   var sheetBackdrop = $('sheetBackdrop');
   var nowPlaying = $('nowPlaying');
   var npHeader = $('npHeader');
+  var npRing = $('npRing');
   var npDisc = $('npDisc');
   var toastEl = $('toast');
   var seek = $('seek');
@@ -58,16 +62,17 @@
   /* inject static icons */
   $('backBtn').innerHTML = icon('back', 22);
   $('sortBtn').innerHTML = icon('sort', 22);
-  $('brandMark').innerHTML = icon('music', 18);
   $('searchIcon').innerHTML = icon('search', 18);
   $('clearSearchBtn').innerHTML = icon('close', 16);
   $('emptyIcon1').innerHTML = icon('music', 30);
   $('emptyIcon2').innerHTML = icon('playlist', 30);
   $('fabBtn').innerHTML = icon('add', 26);
   $('miniArt').innerHTML = icon('music', 20);
-  $('miniNext').innerHTML = icon('next', 22);
+  $('miniPrev').innerHTML = icon('prev', 20);
+  $('miniNext').innerHTML = icon('next', 20);
   $('npClose').innerHTML = icon('chevronDown', 28);
-  $('npQueue').innerHTML = icon('queue', 22);
+  $('npQueue').innerHTML = icon('queue', 20);
+  $('npPl').innerHTML = icon('playlist', 20);
   $('npDiscInner').innerHTML = icon('music', 62);
   $('prevBtn').innerHTML = icon('prev', 30);
   $('nextBtn').innerHTML = icon('next', 30);
@@ -78,8 +83,9 @@
   var plSeq = 1;
   var tracks = [];        // {uid, name, url, dur, addedAt, file}
   var playlists = [];     // {id, name, uids: []}
+  var liked = [];         // uids of liked songs
   var view = 'songs';     // 'songs' | 'playlists'
-  var playlistCtx = null; // playlist id when viewing a playlist, else null
+  var playlistCtx = null; // playlist id (or 'liked') when viewing a playlist, else null
   var sortMode = 'added';
   var queue = [];
   var queueLabel = 'All songs';
@@ -90,12 +96,17 @@
   var toastTimer = null;
   var npIsOpen = false;
   var lastPosSave = 0;
+  var lastPosState = 0;
 
   try {
     sortMode = localStorage.getItem('svara.sort') || 'added';
     shuffle = localStorage.getItem('svara.shuffle') === '1';
     repeat = parseInt(localStorage.getItem('svara.repeat') || '0', 10) || 0;
   } catch (e) { /* storage unavailable */ }
+  try {
+    var savedLiked = JSON.parse(localStorage.getItem('svara.liked') || '[]');
+    if (Array.isArray(savedLiked)) liked = savedLiked;
+  } catch (e) { liked = []; }
 
   var SORTS = [
     { id: 'added',      label: 'Recently added' },
@@ -143,7 +154,31 @@
   }
   function searchQuery() { return searchBox.value.trim().toLowerCase(); }
 
+  function isLiked(u) { return liked.indexOf(u) > -1; }
+  function persistLiked() { save('svara.liked', JSON.stringify(liked)); }
+  function toggleLike(u) {
+    if (u === null || u === undefined) return;
+    var i = liked.indexOf(u);
+    if (i > -1) { liked.splice(i, 1); toast('Removed from Liked songs'); }
+    else { liked.push(u); toast('Added to Liked songs'); }
+    persistLiked();
+    updateLikeUI();
+    render();
+  }
+  function updateLikeUI() {
+    var cur = currentUid !== null && isLiked(currentUid);
+    $('npLike').innerHTML = icon(cur ? 'heart' : 'heartO', 20);
+    $('npLike').classList.toggle('on', cur);
+    $('miniLike').innerHTML = icon(cur ? 'heart' : 'heartO', 20);
+    $('miniLike').classList.toggle('on', cur);
+  }
+
   function currentCtxUids() {
+    if (playlistCtx === 'liked') {
+      var lk = [];
+      liked.forEach(function (u) { if (byUid(u)) lk.push(u); });
+      return lk;
+    }
     if (playlistCtx !== null) {
       var pl = getPlaylist(playlistCtx);
       if (!pl) return [];
@@ -161,13 +196,16 @@
   }
   function buildQueue() {
     queue = currentCtxUids().map(byUid).sort(compare).map(function (t) { return t.uid; });
-    var pl = playlistCtx !== null ? getPlaylist(playlistCtx) : null;
-    queueLabel = pl ? pl.name : 'All songs';
+    if (playlistCtx === 'liked') queueLabel = 'Liked songs';
+    else {
+      var pl = playlistCtx !== null ? getPlaylist(playlistCtx) : null;
+      queueLabel = pl ? pl.name : 'All songs';
+    }
   }
 
   /* ==================== persistence (IndexedDB + localStorage) ====================
      Audio files are stored as blobs in IndexedDB, so the library survives
-     closing the app. Playlists and playback position go to localStorage. */
+     closing the app. Playlists, likes and playback position go to localStorage. */
   var DB = null;
   function idbOpen() {
     return new Promise(function (resolve) {
@@ -224,6 +262,14 @@
     setTimeout(function () { if (r.parentNode) r.parentNode.removeChild(r); }, 600);
   });
 
+  /* ==================== splash ==================== */
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      var s = $('splash');
+      if (s && s.parentNode) s.parentNode.removeChild(s);
+    }, 1800);
+  });
+
   /* ==================== add files ==================== */
   function addFiles(fileList) {
     var newUids = [];
@@ -276,6 +322,8 @@
     $('miniSub').textContent = queueLabel;
     $('npLabel').textContent = queueLabel;
     updateMediaSession(t);
+    updateLikeUI();
+    renderNextUp();
     miniPlayer.hidden = false;
     audio.play().catch(function () { /* autoplay blocked */ });
     render();
@@ -343,6 +391,9 @@
       var i = p.uids.indexOf(uid);
       if (i > -1) p.uids.splice(i, 1);
     });
+    var li = liked.indexOf(uid);
+    if (li > -1) liked.splice(li, 1);
+    persistLiked();
     persistPlaylists();
     if (currentUid === uid) {
       buildQueue();
@@ -359,6 +410,8 @@
     tracks.forEach(function (t) { URL.revokeObjectURL(t.url); });
     tracks = [];
     playlists.forEach(function (p) { p.uids = []; });
+    liked = [];
+    persistLiked();
     persistPlaylists();
     save('svara.last', '0');
     save('svara.pos', '0');
@@ -384,6 +437,7 @@
       $('npSub').textContent = 'Local file · ' + fmt(t.dur);
       render();
     }
+    updatePositionState();
   });
   audio.addEventListener('timeupdate', function () {
     if (seeking) return;
@@ -393,9 +447,11 @@
       seek.value = p;
       seek.style.setProperty('--p', (p / 10) + '%');
       miniProgress.style.width = (p / 10) + '%';
+      npRing.style.setProperty('--np', (p / 10) + '%');
     }
     var now = Date.now();
     if (now - lastPosSave > 5000) { lastPosSave = now; savePos(); }
+    if (now - lastPosState > 1000) { lastPosState = now; updatePositionState(); }
   });
   audio.addEventListener('pause', savePos);
   window.addEventListener('pagehide', savePos);
@@ -403,7 +459,7 @@
   function updatePlayUI() {
     var playing = !audio.paused && !audio.ended;
     $('playBtn').innerHTML = icon(playing ? 'pause' : 'play', 34);
-    $('miniPlay').innerHTML = icon(playing ? 'pause' : 'play', 24);
+    $('miniPlay').innerHTML = icon(playing ? 'pause' : 'play', 22);
     if (playing) { npDisc.classList.add('playing'); $('miniArt').classList.add('spin'); }
     else { npDisc.classList.remove('playing'); $('miniArt').classList.remove('spin'); }
     render();
@@ -417,11 +473,13 @@
     seeking = true;
     var p = seek.value / 1000;
     seek.style.setProperty('--p', (p * 100) + '%');
+    npRing.style.setProperty('--np', (p * 100) + '%');
     curTime.textContent = fmt(p * (audio.duration || 0));
   });
   seek.addEventListener('change', function () {
     if (isFinite(audio.duration)) audio.currentTime = (seek.value / 1000) * audio.duration;
     seeking = false;
+    updatePositionState();
   });
 
   /* ==================== rendering ==================== */
@@ -458,6 +516,16 @@
     plGrid.innerHTML = '';
     var shown = 0;
 
+    /* Liked songs (auto playlist, always first) */
+    var lkLi = document.createElement('li');
+    lkLi.className = 'pl-card liked rippleable';
+    lkLi.innerHTML =
+      '<div class="pl-art liked">' + icon('heart', 32) + '</div>' +
+      '<div class="pl-name">Liked Songs</div>' +
+      '<div class="pl-count">' + liked.length + ' song' + (liked.length === 1 ? '' : 's') + '</div>';
+    lkLi.addEventListener('click', function () { openPlaylist('liked'); });
+    plGrid.appendChild(lkLi);
+
     var newLi = document.createElement('li');
     newLi.className = 'pl-card new rippleable';
     newLi.innerHTML = '<div class="pl-art">' + icon('add', 30) + '</div><div class="pl-name">New Playlist</div><div class="pl-count">Create one</div>';
@@ -480,6 +548,7 @@
   }
 
   function renderDetail() {
+    if (playlistCtx === 'liked') { renderLikedDetail(); return; }
     var pl = getPlaylist(playlistCtx);
     if (!pl) { playlistCtx = null; render(); return; }
     var live = pl.uids.filter(function (u) { return !!byUid(u); });
@@ -493,6 +562,7 @@
       '<div class="pd-count">' + live.length + ' song' + (live.length === 1 ? '' : 's') + '</div>' +
       '<div class="pd-actions">' +
       '<button class="btn primary rippleable" id="pdPlayAll">' + icon('play', 18) + ' Play All</button>' +
+      '<button class="btn ghost rippleable" id="pdAddSongs">' + icon('add', 16) + ' Add Songs</button>' +
       '<button class="btn ghost rippleable" id="pdDelete">' + icon('trash', 16) + ' Delete</button>' +
       '</div></div>';
 
@@ -507,7 +577,7 @@
     if (!live.length) {
       var li = document.createElement('li');
       li.className = 'empty slim';
-      li.innerHTML = '<div class="empty-title">This playlist is empty</div><div class="empty-sub">Use the ⋮ menu on any song to add it here</div>';
+      li.innerHTML = '<div class="empty-title">This playlist is empty</div><div class="empty-sub">Tap "Add Songs" above, or use the \u22EE menu on any song</div>';
       pdList.appendChild(li);
     }
     $('pdPlayAll').addEventListener('click', function () {
@@ -515,6 +585,7 @@
       if (queue.length) playUid(queue[0], true);
       else toast('This playlist has no songs yet');
     });
+    $('pdAddSongs').addEventListener('click', function () { songPickerSheet(pl.id); });
     $('pdDelete').addEventListener('click', function () {
       if (confirm('Delete playlist "' + pl.name + '"? Songs stay in your library.')) {
         playlists.splice(playlists.indexOf(pl), 1);
@@ -523,6 +594,41 @@
         render();
         toast('Playlist deleted');
       }
+    });
+  }
+
+  function renderLikedDetail() {
+    var live = liked.filter(function (u) { return !!byUid(u); });
+    var q = searchQuery();
+    var playing = !audio.paused && !audio.ended;
+
+    pdHero.innerHTML =
+      '<div class="pd-art liked">' + icon('heart', 40) + '</div>' +
+      '<div class="pd-meta">' +
+      '<div class="pd-name">Liked Songs</div>' +
+      '<div class="pd-count">' + live.length + ' song' + (live.length === 1 ? '' : 's') + '</div>' +
+      '<div class="pd-actions">' +
+      '<button class="btn primary rippleable" id="pdPlayAll">' + icon('play', 18) + ' Play All</button>' +
+      '</div></div>';
+
+    pdList.innerHTML = '';
+    var sorted = live.map(byUid).sort(compare);
+    var shown = 0;
+    sorted.forEach(function (t) {
+      if (q && t.name.toLowerCase().indexOf(q) === -1) return;
+      shown++;
+      pdList.appendChild(rowEl(t, true, playing));
+    });
+    if (!live.length) {
+      var li = document.createElement('li');
+      li.className = 'empty slim';
+      li.innerHTML = '<div class="empty-title">No liked songs yet</div><div class="empty-sub">Tap the \u2665 button while a song is playing to like it</div>';
+      pdList.appendChild(li);
+    }
+    $('pdPlayAll').addEventListener('click', function () {
+      buildQueue();
+      if (queue.length) playUid(queue[0], true);
+      else toast('No liked songs yet');
     });
   }
 
@@ -537,8 +643,16 @@
       '</div>' +
       '<div class="meta"><div class="name">' + escapeHtml(t.name) + '</div>' +
       '<div class="sub">' + (t.dur ? fmt(t.dur) : 'Local file') + '</div></div>' +
+      '<button class="icon-btn small like-row" aria-label="Like">' + icon(isLiked(t.uid) ? 'heart' : 'heartO', 19) + '</button>' +
       '<button class="icon-btn small more-btn" aria-label="Song options">' + icon('more', 20) + '</button>';
-    li.addEventListener('click', function () { buildQueue(); playUid(t.uid, true); });
+    li.addEventListener('click', function (e) {
+      if (e.target.closest('.like-row')) return;
+      buildQueue(); playUid(t.uid, true);
+    });
+    li.querySelector('.like-row').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleLike(t.uid);
+    });
     li.querySelector('.more-btn').addEventListener('click', function (e) {
       e.stopPropagation();
       songMenuSheet(t.uid, inPlaylist);
@@ -638,8 +752,10 @@
     openSheet(
       '<div class="sheet-title">' + escapeHtml(t.name) + '</div>' +
       '<button class="sheet-item" data-a="play">' + icon('play', 20) + 'Play</button>' +
+      '<button class="sheet-item" data-a="like">' + icon(isLiked(uid) ? 'heart' : 'heartO', 20) + (isLiked(uid) ? 'Remove from Liked songs' : 'Add to Liked songs') + '</button>' +
       '<button class="sheet-item" data-a="add">' + icon('playlist', 20) + 'Add to playlist</button>' +
-      (inPlaylist ? '<button class="sheet-item danger" data-a="rmpl">' + icon('close', 20) + 'Remove from this playlist</button>' : '') +
+      (inPlaylist && playlistCtx !== 'liked' ? '<button class="sheet-item danger" data-a="rmpl">' + icon('close', 20) + 'Remove from this playlist</button>' : '') +
+      (inPlaylist && playlistCtx === 'liked' ? '<button class="sheet-item danger" data-a="rmlike">' + icon('close', 20) + 'Remove from Liked songs</button>' : '') +
       '<button class="sheet-item danger" data-a="rmlib">' + icon('trash', 20) + 'Remove from library</button>',
       function (root) {
         root.addEventListener('click', function (e) {
@@ -648,6 +764,8 @@
           var a = b.getAttribute('data-a');
           closeSheet();
           if (a === 'play') { buildQueue(); playUid(uid, true); }
+          else if (a === 'like') toggleLike(uid);
+          else if (a === 'rmlike') toggleLike(uid);
           else if (a === 'add') addToPlaylistSheet(uid);
           else if (a === 'rmpl') {
             var pl = getPlaylist(playlistCtx);
@@ -668,7 +786,7 @@
   function addToPlaylistSheet(uid) {
     var html = '<div class="sheet-title">Add to playlist</div>';
     if (!playlists.length) {
-      html += '<div class="sheet-title" style="text-transform:none;letter-spacing:0;font-size:13px;color:#8b90b5;padding-top:0">No playlists yet — create one below</div>';
+      html += '<div class="sheet-title" style="text-transform:none;letter-spacing:0;font-size:13px;color:#8b95ad;padding-top:0">No playlists yet — create one below</div>';
     }
     playlists.forEach(function (p) {
       var inPl = p.uids.indexOf(uid) > -1;
@@ -691,6 +809,45 @@
         else { pl.uids.push(uid); toast('Added to "' + pl.name + '"'); }
         persistPlaylists();
         closeSheet();
+        render();
+      });
+    });
+  }
+
+  function songPickerSheet(plId) {
+    var pl = getPlaylist(plId);
+    if (!pl) return;
+    var html = '<div class="sheet-title">Add songs · ' + escapeHtml(pl.name) + '</div>';
+    if (!tracks.length) {
+      html += '<div class="sheet-title" style="text-transform:none;letter-spacing:0;font-size:13px;color:#8b95ad;padding-top:0">No songs in your library yet — add some first</div>';
+    }
+    tracks.slice().sort(compare).forEach(function (t) {
+      var inPl = pl.uids.indexOf(t.uid) > -1;
+      html += '<button class="sheet-item" data-uid="' + t.uid + '">' + icon('music', 20) +
+        '<span class="q-name">' + escapeHtml(t.name) + '</span>' +
+        '<span class="q-dur">' + (t.dur ? fmt(t.dur) : '') + '</span>' +
+        (inPl ? '<span class="sheet-check">' + icon('check', 18) + '</span>' : '') +
+        '</button>';
+    });
+    openSheet(html, function (root) {
+      root.addEventListener('click', function (e) {
+        var b = e.target.closest('.sheet-item');
+        if (!b || !b.getAttribute('data-uid')) return;
+        var uid = parseInt(b.getAttribute('data-uid'), 10);
+        var i = pl.uids.indexOf(uid);
+        if (i > -1) {
+          pl.uids.splice(i, 1);
+          var chk = b.querySelector('.sheet-check');
+          if (chk) b.removeChild(chk);
+        } else {
+          pl.uids.push(uid);
+          var s = document.createElement('span');
+          s.className = 'sheet-check';
+          s.innerHTML = icon('check', 18);
+          b.appendChild(s);
+        }
+        persistPlaylists();
+        buildQueue();
         render();
       });
     });
@@ -746,11 +903,89 @@
   $('npQueue').addEventListener('click', queueSheet);
 
   /* ==================== now playing ==================== */
-  function openNP() { nowPlaying.classList.add('open'); npIsOpen = true; }
+  function openNP() { nowPlaying.classList.add('open'); npIsOpen = true; renderNextUp(); }
   function closeNP() { nowPlaying.classList.remove('open'); npIsOpen = false; }
   $('npClose').addEventListener('click', closeNP);
   $('miniArt').addEventListener('click', openNP);
   $('miniMeta').addEventListener('click', openNP);
+
+  /* next up strip inside Now Playing */
+  function renderNextUp() {
+    var el = $('npNextUp');
+    if (!el) return;
+    el.innerHTML = '';
+    var idx = indexInQueue();
+    if (idx < 0) return;
+    var upcoming = queue.slice(idx + 1);
+    if (!upcoming.length) upcoming = queue.slice(0, idx);
+    if (!upcoming.length) { el.hidden = true; return; }
+    el.hidden = false;
+    var label = document.createElement('div');
+    label.className = 'nextup-label';
+    label.textContent = 'NEXT UP';
+    el.appendChild(label);
+    var strip = document.createElement('div');
+    strip.className = 'nextup-strip';
+    upcoming.slice(0, 12).forEach(function (u) {
+      var t = byUid(u);
+      if (!t) return;
+      var card = document.createElement('button');
+      card.className = 'nextup-card rippleable';
+      card.innerHTML =
+        '<span class="nextup-art">' + icon('music', 16) + '</span>' +
+        '<span class="nextup-name">' + escapeHtml(t.name) + '</span>' +
+        '<span class="nextup-dur">' + (t.dur ? fmt(t.dur) : '') + '</span>';
+      card.addEventListener('click', function () { playUid(u, false); });
+      strip.appendChild(card);
+    });
+    el.appendChild(strip);
+  }
+
+  /* gestures on the Now Playing screen:
+     - tap left half  = jump back 10 seconds
+     - tap right half = jump forward 10 seconds
+     - swipe left     = next song
+     - swipe right    = previous song
+     - swipe down     = close Now Playing */
+  function skipBy(sec) {
+    if (currentUid === null || !isFinite(audio.duration)) return;
+    var t = Math.min(Math.max(audio.currentTime + sec, 0), audio.duration);
+    try { audio.currentTime = t; } catch (e) { return; }
+    curTime.textContent = fmt(t);
+    var b = $('skipBadge');
+    b.textContent = (sec > 0 ? '+' : '\u2212') + '10s';
+    b.classList.remove('show');
+    void b.offsetWidth;
+    b.classList.add('show');
+  }
+
+  (function () {
+    var x0 = 0, y0 = 0, moved = false, active = false;
+    nowPlaying.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('button, input, .np-header, .np-nextup')) return;
+      active = true; moved = false;
+      x0 = e.clientX; y0 = e.clientY;
+    });
+    nowPlaying.addEventListener('pointermove', function (e) {
+      if (!active) return;
+      if (Math.abs(e.clientX - x0) > 12 || Math.abs(e.clientY - y0) > 12) moved = true;
+    });
+    function up(e) {
+      if (!active) return;
+      active = false;
+      var dx = e.clientX - x0, dy = e.clientY - y0;
+      if (!moved) {
+        skipBy(e.clientX < window.innerWidth / 2 ? -10 : 10);
+      } else if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+        if (dx < 0) nextTrack(false);
+        else prevTrack();
+      } else if (dy > 130 && Math.abs(dy) > Math.abs(dx)) {
+        closeNP();
+      }
+    }
+    nowPlaying.addEventListener('pointerup', up);
+    nowPlaying.addEventListener('pointercancel', function () { active = false; });
+  })();
 
   /* drag the header down to close */
   (function () {
@@ -785,6 +1020,19 @@
   $('nextBtn').addEventListener('click', function () { nextTrack(false); });
   $('miniNext').addEventListener('click', function () { nextTrack(false); });
   $('prevBtn').addEventListener('click', prevTrack);
+  $('miniPrev').addEventListener('click', prevTrack);
+  $('npLike').addEventListener('click', function () {
+    if (currentUid === null) { toast('Play a song first'); return; }
+    toggleLike(currentUid);
+  });
+  $('miniLike').addEventListener('click', function () {
+    if (currentUid === null) { toast('Play a song first'); return; }
+    toggleLike(currentUid);
+  });
+  $('npPl').addEventListener('click', function () {
+    if (currentUid === null) { toast('Play a song first'); return; }
+    addToPlaylistSheet(currentUid);
+  });
 
   $('shuffleBtn').addEventListener('click', function () {
     shuffle = !shuffle;
@@ -803,23 +1051,42 @@
     $('repeatBtn').classList.toggle('on', repeat > 0);
   }
 
-  /* ==================== media session ==================== */
+  /* ==================== media session (lock screen / notification) ==================== */
   function updateMediaSession(t) {
     if (!('mediaSession' in navigator)) return;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: t.name,
-        artist: 'Svara Music Player',
+        artist: 'Hasbi Music Player',
         album: queueLabel
       });
       navigator.mediaSession.setActionHandler('play', function () { audio.play(); });
       navigator.mediaSession.setActionHandler('pause', function () { audio.pause(); });
       navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
       navigator.mediaSession.setActionHandler('nexttrack', function () { nextTrack(false); });
+      try {
+        navigator.mediaSession.setActionHandler('seekbackward', function () { skipBy(-10); });
+        navigator.mediaSession.setActionHandler('seekforward', function () { skipBy(10); });
+      } catch (e2) { /* not supported everywhere */ }
+      try {
+        navigator.mediaSession.setActionHandler('stop', function () { audio.pause(); });
+      } catch (e2) { /* optional */ }
       navigator.mediaSession.setActionHandler('seekto', function (d) {
         if (d.seekTime != null) audio.currentTime = d.seekTime;
       });
     } catch (e) { /* not supported */ }
+  }
+  function updatePositionState() {
+    if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+    try {
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate || 1,
+          position: Math.min(audio.currentTime, audio.duration)
+        });
+      }
+    } catch (e) { /* ignore */ }
   }
 
   /* ==================== keyboard ==================== */
@@ -839,12 +1106,13 @@
   /* ==================== init ==================== */
   $('shuffleBtn').classList.toggle('on', shuffle);
   updateRepeatUI();
+  updateLikeUI();
   updatePlayUI();
   closeNP();
   buildQueue();
   render();
 
-  /* restore the saved library (IndexedDB) + playlists + last song */
+  /* restore the saved library (IndexedDB) + playlists + likes + last song */
   idbOpen().then(function () {
     if (navigator.storage && navigator.storage.persist) {
       try { navigator.storage.persist().catch(function () {}); } catch (e) {}
@@ -868,6 +1136,10 @@
         });
       }
     } catch (e) { /* ignore */ }
+    try {
+      var savedLiked2 = JSON.parse(localStorage.getItem('svara.liked') || '[]');
+      if (Array.isArray(savedLiked2)) liked = savedLiked2.filter(function (u) { return !!byUid(u); });
+    } catch (e) { /* ignore */ }
     buildQueue();
     render();
 
@@ -883,6 +1155,7 @@
       $('miniSub').textContent = queueLabel;
       $('npLabel').textContent = queueLabel;
       miniPlayer.hidden = false;
+      updateLikeUI();
       updatePlayUI();
       var pos = parseFloat(localStorage.getItem('svara.pos') || '0');
       if (isFinite(pos) && pos > 0) {
