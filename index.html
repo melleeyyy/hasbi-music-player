@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0f1226">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d1a">
 <meta name="description" content="Svara — a clean, offline-friendly music player for your local audio files.">
 <title>Svara — Music Player</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -13,50 +13,106 @@
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="dot">🎵</div>
-    <div>Svara<small>MUSIC PLAYER</small></div>
+<header class="app-header">
+  <button class="icon-btn rippleable" id="backBtn" aria-label="Back" hidden></button>
+  <div class="brand">
+    <div class="brand-mark" id="brandMark"></div>
+    <div class="brand-text">Svara<small>MUSIC PLAYER</small></div>
   </div>
+  <button class="icon-btn rippleable" id="sortBtn" aria-label="Sort order" hidden></button>
 </header>
 
-<div id="emptyState">
-  <div class="big">🎧</div>
-  Tap the button below to add your songs<br>
-  <span style="font-size:12.5px">Pick any audio files on your device (MP3, M4A, WAV…)</span>
+<nav class="tabs" id="tabs">
+  <div class="tab-thumb" id="tabThumb"></div>
+  <button class="tab active" data-view="songs">Songs</button>
+  <button class="tab" data-view="playlists">Playlists</button>
+</nav>
+
+<div class="search-wrap">
+  <span class="search-icon" id="searchIcon"></span>
+  <input id="searchBox" type="search" placeholder="Search songs or playlists..." autocomplete="off">
+  <button class="icon-btn tiny rippleable" id="clearSearchBtn" aria-label="Clear search" hidden></button>
 </div>
 
-<div id="addBtnWrap">
-  <button class="btn" id="addBtn">＋ Add Songs</button>
-</div>
+<main class="main" id="main">
+  <section id="songsView">
+    <div class="empty" id="songsEmpty">
+      <div class="empty-icon" id="emptyIcon1"></div>
+      <div class="empty-title">Your library is empty</div>
+      <div class="empty-sub">Add audio files from your device to start listening</div>
+      <button class="btn primary rippleable" id="addBtn">Add Songs</button>
+    </div>
+    <ul class="list" id="songList"></ul>
+    <div class="empty slim hidden" id="noResults">
+      <div class="empty-title">No matching songs</div>
+      <div class="empty-sub">Try a different search</div>
+    </div>
+  </section>
 
-<div id="toolbar">
-  <input id="searchBox" type="search" placeholder="🔍 Search songs...">
-  <button class="icon-btn" id="shuffleBtn" title="Shuffle">🔀</button>
-  <button class="icon-btn" id="repeatBtn" title="Repeat">🔁</button>
-  <button class="icon-btn" id="clearBtn" title="Clear all">🗑️</button>
-</div>
+  <section id="playlistsView" hidden>
+    <ul class="pl-grid" id="plGrid"></ul>
+    <div class="empty" id="plEmpty">
+      <div class="empty-icon" id="emptyIcon2"></div>
+      <div class="empty-title">No playlists yet</div>
+      <div class="empty-sub">Group your favourite songs into playlists</div>
+      <button class="btn primary rippleable" id="newPlBtn">New Playlist</button>
+    </div>
+  </section>
 
-<div id="playlistWrap">
-  <ul id="playlist"></ul>
-</div>
+  <section id="playlistDetail" hidden>
+    <div class="pd-hero" id="pdHero"></div>
+    <ul class="list" id="pdList"></ul>
+  </section>
+</main>
 
-<div id="player">
-  <div id="nowName">—</div>
-  <div id="nowSub">Svara Music Player</div>
-  <div id="seekWrap">
-    <span id="curTime">0:00</span>
-    <input type="range" id="seek" min="0" max="1000" value="0" step="1">
-    <span id="totTime">0:00</span>
+<button class="fab rippleable" id="fabBtn" aria-label="Add songs to library"></button>
+
+<div class="mini" id="miniPlayer" hidden>
+  <div class="mini-progress" id="miniProgress"></div>
+  <button class="mini-art" id="miniArt" aria-label="Open now playing"></button>
+  <div class="mini-meta" id="miniMeta">
+    <div class="mini-name" id="miniName">—</div>
+    <div class="mini-sub" id="miniSub">Svara</div>
   </div>
-  <div id="controls">
-    <button class="nav-btn" id="prevBtn">⏮</button>
-    <button id="playBtn">▶</button>
-    <button class="nav-btn" id="nextBtn">⏭</button>
+  <button class="icon-btn large rippleable" id="miniPlay" aria-label="Play or pause"></button>
+  <button class="icon-btn large rippleable" id="miniNext" aria-label="Next song"></button>
+</div>
+
+<div class="np" id="nowPlaying">
+  <div class="np-bg" aria-hidden="true"></div>
+  <div class="np-header" id="npHeader">
+    <button class="icon-btn rippleable" id="npClose" aria-label="Close now playing"></button>
+    <div class="np-context"><small>PLAYING FROM</small><span id="npLabel">All songs</span></div>
+    <button class="icon-btn rippleable" id="npQueue" aria-label="Open queue"></button>
+  </div>
+  <div class="np-disc-wrap">
+    <div class="np-disc" id="npDisc"><div class="np-disc-inner" id="npDiscInner"></div></div>
+  </div>
+  <div class="np-title" id="npTitle">—</div>
+  <div class="np-sub" id="npSub">Local file</div>
+  <div class="np-seek">
+    <span class="np-time" id="curTime">0:00</span>
+    <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+    <span class="np-time" id="totTime">0:00</span>
+  </div>
+  <div class="np-controls">
+    <button class="icon-btn big rippleable" id="shuffleBtn" aria-label="Shuffle"></button>
+    <button class="icon-btn big rippleable" id="prevBtn" aria-label="Previous song"></button>
+    <button class="np-play rippleable" id="playBtn" aria-label="Play or pause"></button>
+    <button class="icon-btn big rippleable" id="nextBtn" aria-label="Next song"></button>
+    <button class="icon-btn big rippleable" id="repeatBtn" aria-label="Repeat mode"></button>
   </div>
 </div>
 
-<div id="toast"></div>
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<div class="sort-menu" id="sortMenu"></div>
+
+<div class="toast" id="toast"></div>
 <audio id="audio" preload="metadata"></audio>
 <input type="file" id="fileInput" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac,.aac,.opus" multiple hidden>
 
