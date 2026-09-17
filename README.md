@@ -7,6 +7,7 @@ A clean, modern, **offline-friendly music player** that runs entirely in your br
 ## Features
 
 - 🎶 **Instant library** — select any audio files on your phone or computer (MP3, M4A, WAV, OGG, FLAC, AAC, OPUS)
+- 💾 **Persistent library** — songs are saved inside the browser (IndexedDB), so everything is still there when you close and reopen the app — playlists, sorting and even the last played song and position
 - 🖼️ **Full-screen Now Playing experience** — animated spinning disc, ambient gradients, swipe the header down to dismiss
 - ▶️ **Mini player** — compact bar with progress line; tap it any time to jump into Now Playing
 - 🗂️ **Playlists** — create named playlists, add/remove songs from the ⋮ menu, Play All from a playlist
@@ -19,6 +20,7 @@ A clean, modern, **offline-friendly music player** that runs entirely in your br
 - 📴 **Works offline** — the app shell is cached by a service worker after your first visit
 - ✨ **Polished UI** — custom SVG iconography, ripple feedback, smooth scrolling and animated transitions throughout, respects reduced-motion preferences
 - 🔒 **100% private** — everything runs locally in your browser; nothing is uploaded
+- 🗑️ Remove individual songs, or wipe everything with **Clear library** (in the sort menu)
 
 ## Tech
 
@@ -42,6 +44,8 @@ svara-music-player/
 2. Tap **＋ Add Songs** (or the floating + button) and choose audio files from your device
 3. Tap any song to play — it opens in the full-screen Now Playing view
 4. Swipe the Now Playing header down (or tap the chevron) to return to your library
+
+Your library is saved automatically — close the app and come back later, everything will still be there.
 
 ### Keyboard shortcuts
 
@@ -77,7 +81,8 @@ The app is a fully static site — host it anywhere:
 
 ## Notes & limitations
 
-- Browsers don't allow a web page to remember locally-picked files after it is closed, so you re-pick your songs on each visit (playlists are also session-only for the same reason)
+- Your library lives in the browser's storage for this site. Clearing the browser's site data (or using private/incognito mode) will remove it
+- Very large libraries depend on available browser storage; the app asks the browser for persistent storage to reduce the chance of cleanup
 - Background playback depends on the browser (Chrome on Android is best supported)
 
 ## License

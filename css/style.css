@@ -23,6 +23,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
+.hidden { display: none !important; }
 
 html { scroll-behavior: smooth; }
 
@@ -512,6 +513,9 @@ button { font-family: inherit; }
 .sort-item:hover { background: var(--surface-hover); }
 .sort-item .check { margin-left: auto; color: var(--accent2); display: flex; }
 .sort-item .check.empty-check { visibility: hidden; }
+.sort-sep { height: 1px; background: var(--border); margin: 6px 8px; }
+.sort-item.danger { color: var(--danger); }
+.sort-item.danger svg { color: var(--danger); }
 
 /* ---------- toast ---------- */
 .toast {
