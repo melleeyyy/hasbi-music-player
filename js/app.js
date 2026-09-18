@@ -286,6 +286,7 @@
     }
     if (!newUids.length) { toast('No audio files found'); return; }
     render();
+    probeNext();
     if (currentUid === null) {
       buildQueue();
       playUid(newUids[newUids.length - 1], true);
@@ -323,7 +324,6 @@
     $('npLabel').textContent = queueLabel;
     updateMediaSession(t);
     updateLikeUI();
-    renderNextUp();
     miniPlayer.hidden = false;
     audio.play().catch(function () { /* autoplay blocked */ });
     render();
@@ -889,10 +889,18 @@
         (cur ? icon('play', 20) : '<span class="q-idx">' + (i + 1) + '</span>') +
         '<span class="q-name">' + escapeHtml(t.name) + '</span>' +
         (t.dur ? '<span class="q-dur">' + fmt(t.dur) + '</span>' : '') +
+        '<span class="q-more" data-more="' + u + '" aria-label="Song options">' + icon('more', 18) + '</span>' +
         '</button>';
     });
     openSheet(html, function (root) {
       root.addEventListener('click', function (e) {
+        var m = e.target.closest('.q-more');
+        if (m) {
+          e.stopPropagation();
+          closeSheet();
+          songMenuSheet(parseInt(m.getAttribute('data-more'), 10), false);
+          return;
+        }
         var b = e.target.closest('.sheet-item');
         if (!b || !b.getAttribute('data-uid')) return;
         closeSheet();
@@ -903,50 +911,18 @@
   $('npQueue').addEventListener('click', queueSheet);
 
   /* ==================== now playing ==================== */
-  function openNP() { nowPlaying.classList.add('open'); npIsOpen = true; renderNextUp(); }
+  function openNP() { nowPlaying.classList.add('open'); npIsOpen = true; }
   function closeNP() { nowPlaying.classList.remove('open'); npIsOpen = false; }
   $('npClose').addEventListener('click', closeNP);
   $('miniArt').addEventListener('click', openNP);
   $('miniMeta').addEventListener('click', openNP);
 
-  /* next up strip inside Now Playing */
-  function renderNextUp() {
-    var el = $('npNextUp');
-    if (!el) return;
-    el.innerHTML = '';
-    var idx = indexInQueue();
-    if (idx < 0) return;
-    var upcoming = queue.slice(idx + 1);
-    if (!upcoming.length) upcoming = queue.slice(0, idx);
-    if (!upcoming.length) { el.hidden = true; return; }
-    el.hidden = false;
-    var label = document.createElement('div');
-    label.className = 'nextup-label';
-    label.textContent = 'NEXT UP';
-    el.appendChild(label);
-    var strip = document.createElement('div');
-    strip.className = 'nextup-strip';
-    upcoming.slice(0, 12).forEach(function (u) {
-      var t = byUid(u);
-      if (!t) return;
-      var card = document.createElement('button');
-      card.className = 'nextup-card rippleable';
-      card.innerHTML =
-        '<span class="nextup-art">' + icon('music', 16) + '</span>' +
-        '<span class="nextup-name">' + escapeHtml(t.name) + '</span>' +
-        '<span class="nextup-dur">' + (t.dur ? fmt(t.dur) : '') + '</span>';
-      card.addEventListener('click', function () { playUid(u, false); });
-      strip.appendChild(card);
-    });
-    el.appendChild(strip);
-  }
-
   /* gestures on the Now Playing screen:
-     - tap left half  = jump back 10 seconds
-     - tap right half = jump forward 10 seconds
-     - swipe left     = next song
-     - swipe right    = previous song
-     - swipe down     = close Now Playing */
+     - tap the disc left half  = jump back 10 seconds
+     - tap the disc right half = jump forward 10 seconds
+     - swipe left              = next song (with slide animation)
+     - swipe right             = previous song (with slide animation)
+     - swipe down              = close Now Playing */
   function skipBy(sec) {
     if (currentUid === null || !isFinite(audio.duration)) return;
     var t = Math.min(Math.max(audio.currentTime + sec, 0), audio.duration);
@@ -959,10 +935,42 @@
     b.classList.add('show');
   }
 
+  function animateSongChange(dir) {
+    [npRing.parentNode, $('npTitle')].forEach(function (el) {
+      el.classList.remove('anim-left', 'anim-right');
+      void el.offsetWidth;
+      el.classList.add(dir < 0 ? 'anim-left' : 'anim-right');
+    });
+  }
+
+  /* tap the album disc to skip 10 seconds (disc area only) */
+  (function () {
+    var wrap = $('npDiscWrap');
+    var x0 = 0, y0 = 0, moved = false, active = false;
+    wrap.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('button, input')) return;
+      active = true; moved = false;
+      x0 = e.clientX; y0 = e.clientY;
+    });
+    wrap.addEventListener('pointermove', function (e) {
+      if (!active) return;
+      if (Math.abs(e.clientX - x0) > 12 || Math.abs(e.clientY - y0) > 12) moved = true;
+    });
+    function up(e) {
+      if (!active) return;
+      active = false;
+      if (moved) return;
+      skipBy(e.clientX < window.innerWidth / 2 ? -10 : 10);
+    }
+    wrap.addEventListener('pointerup', up);
+    wrap.addEventListener('pointercancel', function () { active = false; });
+  })();
+
+  /* swipe anywhere on Now Playing: left/right changes song, swipe down closes */
   (function () {
     var x0 = 0, y0 = 0, moved = false, active = false;
     nowPlaying.addEventListener('pointerdown', function (e) {
-      if (e.target.closest('button, input, .np-header, .np-nextup')) return;
+      if (e.target.closest('button, input, .np-header')) return;
       active = true; moved = false;
       x0 = e.clientX; y0 = e.clientY;
     });
@@ -974,9 +982,9 @@
       if (!active) return;
       active = false;
       var dx = e.clientX - x0, dy = e.clientY - y0;
-      if (!moved) {
-        skipBy(e.clientX < window.innerWidth / 2 ? -10 : 10);
-      } else if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      if (!moved) return;
+      if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+        animateSongChange(dx);
         if (dx < 0) nextTrack(false);
         else prevTrack();
       } else if (dy > 130 && Math.abs(dy) > Math.abs(dx)) {
@@ -1103,6 +1111,72 @@
     }
   });
 
+  /* ==================== duration probing ====================
+     Reads the duration of tracks that don't have one yet (one at a
+     time, in the background) so times always show in every list. */
+  var probeAudio = null, probing = false, renderTimer = null;
+  function renderSoon() {
+    if (renderTimer) return;
+    renderTimer = setTimeout(function () { renderTimer = null; render(); }, 600);
+  }
+  function probeNext() {
+    if (probing) return;
+    var t = null;
+    for (var i = 0; i < tracks.length; i++) { if (!tracks[i].dur) { t = tracks[i]; break; } }
+    if (!t) return;
+    probing = true;
+    if (!probeAudio) probeAudio = document.createElement('audio');
+    probeAudio.preload = 'metadata';
+    var done = false;
+    function finish(dur) {
+      if (done) return;
+      done = true;
+      probing = false;
+      probeAudio.onloadedmetadata = null;
+      probeAudio.onerror = null;
+      probeAudio.removeAttribute('src');
+      if (dur && isFinite(dur)) {
+        t.dur = dur;
+        idbPut({ uid: t.uid, name: t.name, dur: dur, addedAt: t.addedAt, blob: t.file });
+        renderSoon();
+      }
+      setTimeout(probeNext, 60);
+    }
+    probeAudio.onloadedmetadata = function () { finish(probeAudio.duration); };
+    probeAudio.onerror = function () { finish(null); };
+    try { probeAudio.src = t.url; } catch (e) { finish(null); }
+    setTimeout(function () { finish(t.dur || null); }, 8000);
+  }
+
+  /* ==================== tab swipe (Songs <-> Playlists) ==================== */
+  (function () {
+    var x0 = 0, y0 = 0, moved = false, active = false;
+    var mainEl = $('main');
+    mainEl.addEventListener('pointerdown', function (e) {
+      if (playlistCtx !== null) return;
+      if (sheetEl.classList.contains('open')) return;
+      if (e.target.closest('button, input')) return;
+      active = true; moved = false;
+      x0 = e.clientX; y0 = e.clientY;
+    });
+    mainEl.addEventListener('pointermove', function (e) {
+      if (!active) return;
+      if (Math.abs(e.clientX - x0) > 14 || Math.abs(e.clientY - y0) > 14) moved = true;
+    });
+    function up(e) {
+      if (!active) return;
+      active = false;
+      var dx = e.clientX - x0, dy = e.clientY - y0;
+      if (!moved || Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      var nextView = dx < 0 ? 'playlists' : 'songs';
+      if (nextView === view) return;
+      var tab = tabsEl.querySelector('.tab[data-view="' + nextView + '"]');
+      if (tab) tab.click();
+    }
+    mainEl.addEventListener('pointerup', up);
+    mainEl.addEventListener('pointercancel', function () { active = false; });
+  })();
+
   /* ==================== init ==================== */
   $('shuffleBtn').classList.toggle('on', shuffle);
   updateRepeatUI();
@@ -1142,6 +1216,7 @@
     } catch (e) { /* ignore */ }
     buildQueue();
     render();
+    probeNext();
 
     /* bring back the last played song — paused, at its saved position */
     var lastUid = parseInt(localStorage.getItem('svara.last') || '0', 10);
