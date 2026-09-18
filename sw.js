@@ -3,7 +3,7 @@
    Caches the app shell so the player works fully offline.
    License: MIT
    ============================================================ */
-const CACHE_NAME = 'hasbi-v4';
+const CACHE_NAME = 'hasbi-v5';
 const CORE_ASSETS = [
   './',
   './index.html',
