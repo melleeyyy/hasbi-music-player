@@ -8,15 +8,16 @@ A clean, modern, **offline-friendly music player** that runs entirely in your br
 
 - 🎶 **Instant library** — select any audio files on your phone or computer (MP3, M4A, WAV, OGG, FLAC, AAC, OPUS)
 - 💾 **Persistent library** — songs are saved inside the browser (IndexedDB), so everything is still there when you close and reopen the app — playlists, likes, sorting and even the last played song and position
-- 🖼️ **Full-screen Now Playing experience** — circular disc with a glowing blue–green progress ring, ambient gradients, "Next up" strip of upcoming songs
-- 👆 **Gestures** — tap the left / right side of the Now Playing screen to jump 10 seconds back / forward; swipe left / right to change songs; swipe down (or drag the header) to dismiss
+- 🖼️ **Full-screen Now Playing experience** — circular disc with a glowing blue–green progress ring, ambient gradients, balanced layout that fills the screen
+- 👆 **Gestures** — tap the left / right half of the album disc to jump 10 seconds back / forward; swipe left / right anywhere to change songs (with a slide animation); swipe down (or drag the header) to dismiss; swipe left / right on the home page to switch between Songs and Playlists
 - ❤️ **Likes** — heart button on every song, in the mini player and in Now Playing; all liked songs live together in the **Liked Songs** playlist
 - ▶️ **Mini player with full controls** — like, previous, play / pause and next, right on the compact bar
 - 🗂️ **Playlists** — create named playlists, add songs from the ⋮ menu, the Now Playing screen or the "Add Songs" button inside a playlist, then Play All
 - 🔀 **Shuffle** and three **repeat modes** (off / repeat all / repeat one)
 - 🔃 **Sorting** — recently added, title A–Z / Z–A, shortest / longest first (remembered across visits)
 - 🔍 **Search** across songs and playlists
-- 📋 **Queue viewer** — see and jump to any song in the current queue
+- ⏱️ **Automatic duration detection** — song lengths are read in the background so times always show in every list
+- 📋 **Queue viewer** — see and jump to any song in the current queue, with a ⋮ menu (like, add to playlist…) on every row
 - 📱 **Background playback & lock-screen controls** — play / pause, next, previous and seek appear in the notification and on the lock screen (Media Session API; Chrome on Android is best supported)
 - 🎨 **Dark glassmorphism design** — deep black theme with blue and green accents
 - 📲 **Installable PWA** — "Add to Home screen" for an app-like experience with a splash screen
@@ -46,7 +47,8 @@ hasbi-music-player/
 1. Open the app in any modern browser
 2. Tap **＋ Add Songs** (or the floating + button) and choose audio files from your device
 3. Tap any song to play — it opens in the full-screen Now Playing view
-4. In Now Playing: tap the left / right side to skip 10 seconds, swipe left / right to change songs, swipe down to return to your library
+4. In Now Playing: tap the left / right side of the album disc to skip 10 seconds, swipe left / right to change songs, swipe down to return to your library
+5. On the home page, swipe left / right to switch between the Songs and Playlists tabs
 
 Your library is saved automatically — close the app and come back later, everything will still be there.
 
